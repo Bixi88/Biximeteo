@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# serve per poter creare la release
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -28,3 +32,15 @@ jobs:
         with:
           name: meteo-apk
           path: app/build/outputs/apk/release/*.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n1)
+          cp "$APK" "Biximeteo-${{ github.run_number }}.apk"
+          gh release create "build-${{ github.run_number }}" "Biximeteo-${{ github.run_number }}.apk" \
+            --target "${{ github.sha }}" \
+            --title "Build ${{ github.run_number }}" \
+            --notes "APK generato automaticamente dalla build #${{ github.run_number }}" \
+            --latest
