@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +32,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,14 +63,20 @@ import app.meteopersonale.data.Geocoding
 import app.meteopersonale.data.Place
 import app.meteopersonale.data.SettingsStore
 import app.meteopersonale.data.WeatherRepository
+import app.meteopersonale.data.HourPoint
 import app.meteopersonale.widget.MeteoWidget
+import app.meteopersonale.widget.WidgetCol
+import app.meteopersonale.widget.WidgetUpdater
+import app.meteopersonale.widget.buildWidgetColumns
 import app.meteopersonale.widget.WidgetMetrics
 import app.meteopersonale.widget.widgetDayName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 private val Accent = Color(0xFF3B9BEF)
 private val Dim = Color(0xFF9A9A9A)
@@ -87,7 +96,9 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
     var wPlace by remember { mutableStateOf(settings.widgetPlace) }
     var scale by remember { mutableFloatStateOf(settings.widgetFontScale) }
     var interval by remember { mutableIntStateOf(settings.widgetIntervalMin) }
-    val dark = remember { settings.widgetDarkText }
+    var dark by remember { mutableStateOf(settings.widgetDarkText) }
+    var daysCount by remember { mutableIntStateOf(settings.widgetDays) }
+    var current by remember { mutableStateOf<HourPoint?>(null) }
     var days by remember { mutableStateOf<List<DayPoint>>(emptyList()) }
     var msg by remember { mutableStateOf("") }
     var reloadTick by remember { mutableIntStateOf(0) }
@@ -97,7 +108,8 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
 
     fun refreshWidget() {
-        scope.launch { runCatching { MeteoWidget().updateAll(appCtx) } }
+        WidgetUpdater.redraw(appCtx)
+        WidgetUpdater.refreshData(appCtx)
     }
 
     fun hasLocationPermission(): Boolean =
@@ -146,6 +158,8 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
             val f = repo.load(p, settings.source, maxAgeS = 3600L)
             val today = LocalDate.now()
             days = f.days.filter { !it.date.isBefore(today) }.take(7)
+            val now = Instant.now()
+            current = f.hours.lastOrNull { it.time <= now && it.time > now.minus(2, ChronoUnit.HOURS) }
             msg = ""
         } catch (e: CancellationException) {
             throw e
@@ -180,7 +194,7 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
                     .clickable { onBack() }
                     .padding(horizontal = 18.dp, vertical = 8.dp)
             )
-            Box2(days, scale, dark, msg)
+            WidgetPreview(buildWidgetColumns(days, current, daysCount), scale, dark, msg)
             Spacer(Modifier.height(14.dp))
         }
 
@@ -221,6 +235,66 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
                     .padding(horizontal = 8.dp)
             )
             Text("A", color = Color.White, fontSize = 24.sp)
+        }
+
+        Divider2()
+
+        // ---- giorni a vista
+        Text(
+            "Giorni a vista",
+            color = Color.White,
+            fontSize = 17.sp,
+            modifier = Modifier.padding(start = 24.dp, top = 6.dp, bottom = 8.dp)
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            (4..7).forEach { n ->
+                val sel = daysCount == n
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (sel) Accent else Color(0xFF1E1E1E))
+                        .clickable {
+                            daysCount = n
+                            settings.widgetDays = n
+                            refreshWidget()
+                        }
+                        .padding(horizontal = 22.dp, vertical = 9.dp)
+                ) {
+                    Text("$n", color = if (sel) Color.Black else Color.White, fontSize = 16.sp)
+                }
+            }
+            Text("(predefinito 6)", color = Dim, fontSize = 13.sp)
+        }
+
+        Divider2()
+
+        // ---- testo scuro
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    dark = !dark
+                    settings.widgetDarkText = dark
+                    refreshWidget()
+                }
+                .padding(horizontal = 24.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Widget testo scuro", color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+            Switch(
+                checked = dark,
+                onCheckedChange = {
+                    dark = it
+                    settings.widgetDarkText = it
+                    refreshWidget()
+                }
+            )
         }
 
         Divider2()
@@ -323,15 +397,15 @@ private fun Divider2() {
 
 /** Anteprima: stesse misure e stessi colori del widget vero. */
 @Composable
-private fun Box2(days: List<DayPoint>, scale: Float, dark: Boolean, msg: String) {
+private fun WidgetPreview(cols: List<WidgetCol>, scale: Float, dark: Boolean, msg: String) {
     val main = if (dark) Color(0xFF101010) else Color.White
     val sub = if (dark) Color(0xFF444444) else Color(0xFFDDDDDD)
-    BoxWithConstraints(
+    Box(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
     ) {
-        if (days.isEmpty()) {
+        if (cols.isEmpty()) {
             Text(
                 if (msg.isEmpty()) "Carico…" else msg,
                 color = main,
@@ -342,12 +416,11 @@ private fun Box2(days: List<DayPoint>, scale: Float, dark: Boolean, msg: String)
                     .padding(vertical = 22.dp)
             )
         } else {
-            val cols = WidgetMetrics.columns(maxWidth.value, scale)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                days.take(cols).forEach { d ->
+                cols.forEach { d ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            widgetDayName(d.date),
+                            d.name,
                             color = main,
                             fontSize = (WidgetMetrics.DAY_SP * scale).sp,
                             maxLines = 1
@@ -359,13 +432,13 @@ private fun Box2(days: List<DayPoint>, scale: Float, dark: Boolean, msg: String)
                         )
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
-                                "${Math.round(d.maxC)}°",
+                                "${d.bigC}°",
                                 color = main,
                                 fontSize = (WidgetMetrics.MAX_SP * scale).sp,
                                 maxLines = 1
                             )
                             Text(
-                                "${Math.round(d.minC)}°",
+                                "${d.smallC}°",
                                 color = sub,
                                 fontSize = (WidgetMetrics.MIN_SP * scale).sp,
                                 maxLines = 1

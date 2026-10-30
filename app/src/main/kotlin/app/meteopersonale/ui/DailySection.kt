@@ -148,6 +148,16 @@ fun DailySection(days: List<DayPoint>) {
                     fontSize = 15.sp,
                     modifier = Modifier.height(30.dp)
                 )
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontFamily = SfThin, fontSize = 17.sp, color = WindColor)) {
+                            append(windKmh(d.windMaxMs).toString())
+                        }
+                        withStyle(SpanStyle(fontSize = 11.sp, color = WindColor)) { append("km/h") }
+                    },
+                    maxLines = 1,
+                    modifier = Modifier.height(26.dp)
+                )
             }
         }
     }

@@ -23,7 +23,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -131,9 +135,23 @@ fun HourlySection(hours: List<HourPoint>, zone: ZoneId) {
                             modifier = Modifier.height(24.dp)
                         )
                         Text(
-                            if (p.precipMm >= 0.05) String.format(Locale.US, "%.1f", p.precipMm) else "",
+                            if (p.precipMm >= 0.05) buildAnnotatedString {
+                                append(String.format(Locale.US, "%.1f", p.precipMm))
+                                withStyle(SpanStyle(fontSize = 10.sp)) { append("mm") }
+                            } else AnnotatedString(""),
                             color = RainBlue,
                             fontSize = 13.sp,
+                            maxLines = 1,
+                            modifier = Modifier.height(20.dp)
+                        )
+                        Text(
+                            buildAnnotatedString {
+                                append(windKmh(p.windMs).toString())
+                                withStyle(SpanStyle(fontSize = 9.sp)) { append("km/h") }
+                            },
+                            color = WindColor,
+                            fontSize = 13.sp,
+                            maxLines = 1,
                             modifier = Modifier.height(20.dp)
                         )
                     }

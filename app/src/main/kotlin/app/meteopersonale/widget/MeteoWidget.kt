@@ -33,7 +33,9 @@ import app.meteopersonale.data.SettingsStore
 import app.meteopersonale.data.WeatherRepository
 import app.meteopersonale.ui.MainActivity
 import app.meteopersonale.ui.WeatherIcons
+import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -44,12 +46,13 @@ class MeteoWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        WidgetUpdater.schedulePeriodic(context)
         val settings = SettingsStore(context)
         val place = settings.widgetResolvedPlace()
         val dark = settings.widgetDarkText
         val scale = settings.widgetFontScale
 
-        var days: List<DayPoint> = emptyList()
+        var cols: List<WidgetCol> = emptyList()
         var message: String? = null
         if (place == null) {
             message = "Apri l'app per scegliere la posizione"
@@ -59,15 +62,19 @@ class MeteoWidget : GlanceAppWidget() {
                     place, settings.source,
                     maxAgeS = settings.widgetIntervalMin * 60L
                 )
-                val today = LocalDate.now()
-                days = f.days.filter { !it.date.isBefore(today) }.take(7)
-                if (days.isEmpty()) message = "Nessun dato"
+                val now = Instant.now()
+                // ora attuale: serve per l'icona di oggi (di sera con la luna)
+                val current = f.hours.lastOrNull {
+                    it.time <= now && it.time > now.minus(2, ChronoUnit.HOURS)
+                }
+                cols = buildWidgetColumns(f.days, current, settings.widgetDays)
+                if (cols.isEmpty()) message = "Nessun dato"
             } catch (e: Exception) {
                 message = "Nessun dato"
             }
         }
 
-        provideContent { WidgetContent(days, message, dark, scale) }
+        provideContent { WidgetContent(cols, message, dark, scale) }
     }
 }
 
@@ -78,9 +85,6 @@ object WidgetMetrics {
     const val MAX_SP = 14f
     const val MIN_SP = 9f
     const val ICON_DP = 24f
-
-    fun columns(widthDp: Float, scale: Float): Int =
-        (widthDp / (COLUMN_DP * scale)).toInt().coerceIn(3, 7)
 }
 
 private val dayFmt = DateTimeFormatter.ofPattern("EEE", Locale.ITALY)
@@ -89,10 +93,9 @@ fun widgetDayName(d: LocalDate): String =
     dayFmt.format(d).replaceFirstChar { it.uppercase() }.removeSuffix(".")
 
 @Composable
-private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean, scale: Float) {
+private fun WidgetContent(cols: List<WidgetCol>, message: String?, dark: Boolean, scale: Float) {
     val main = if (dark) Color(0xFF101010) else Color.White
     val sub = if (dark) Color(0xFF444444) else Color(0xFFDDDDDD)
-    val size = LocalSize.current
 
     val open = actionStartActivity(Intent(LocalContext.current, MainActivity::class.java))
 
@@ -106,21 +109,19 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean,
         return
     }
 
-    val cols = WidgetMetrics.columns(size.width.value, scale)
-    val shown = days.take(cols)
 
     Row(
         modifier = GlanceModifier.fillMaxSize().padding(horizontal = 2.dp).clickable(open),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        shown.forEach { d ->
+        cols.forEach { d ->
             Column(
                 modifier = GlanceModifier.defaultWeight(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    widgetDayName(d.date),
+                    d.name,
                     style = TextStyle(
                         color = ColorProvider(main),
                         fontSize = (WidgetMetrics.DAY_SP * scale).sp,
@@ -135,7 +136,7 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean,
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        "${Math.round(d.maxC)}°",
+                        "${d.bigC}°",
                         style = TextStyle(
                             color = ColorProvider(main),
                             fontSize = (WidgetMetrics.MAX_SP * scale).sp
@@ -143,7 +144,7 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean,
                         maxLines = 1
                     )
                     Text(
-                        "${Math.round(d.minC)}°",
+                        "${d.smallC}°",
                         style = TextStyle(
                             color = ColorProvider(sub),
                             fontSize = (WidgetMetrics.MIN_SP * scale).sp

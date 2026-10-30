@@ -44,6 +44,7 @@ import androidx.core.content.ContextCompat
 import androidx.glance.appwidget.updateAll
 import androidx.compose.material3.Checkbox
 import app.meteopersonale.widget.MeteoWidget
+import app.meteopersonale.widget.WidgetUpdater
 import app.meteopersonale.BuildConfig
 import app.meteopersonale.data.Forecast
 import app.meteopersonale.data.Geocoding
@@ -74,7 +75,7 @@ fun WeatherApp(refreshTick: Int) {
     var forecast by remember { mutableStateOf<Forecast?>(null) }
     var status by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
-    var widgetDark by remember { mutableStateOf(settings.widgetDarkText) }
+    var showPopupSettings by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var showWidgetSettings by remember { mutableStateOf(false) }
     var forceTick by remember { mutableIntStateOf(0) }
@@ -137,8 +138,8 @@ fun WeatherApp(refreshTick: Int) {
         try {
             val f = repo.load(p, source, force)
             forecast = f
-            // aggiorna anche il widget (usa i dati appena salvati in cache)
-            runCatching { MeteoWidget().updateAll(appCtx) }
+            // aggiorna il widget in background (non si interrompe uscendo dall'app)
+            WidgetUpdater.refreshData(appCtx)
             val fb = f.fallbackFrom
             val hm = DateTimeFormatter.ofPattern("H:mm").withZone(zone)
             status = if (fb != null) {
@@ -153,7 +154,7 @@ fun WeatherApp(refreshTick: Int) {
         }
     }
 
-    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else Column(
+    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else if (showPopupSettings) PopupSettingsScreen(onBack = { showPopupSettings = false }) else Column(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
@@ -211,27 +212,6 @@ fun WeatherApp(refreshTick: Int) {
                             Text(s.label)
                         }
                     }
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                widgetDark = !widgetDark
-                                settings.widgetDarkText = widgetDark
-                                scope.launch { runCatching { MeteoWidget().updateAll(appCtx) } }
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = widgetDark,
-                            onCheckedChange = {
-                                widgetDark = it
-                                settings.widgetDarkText = it
-                                scope.launch { runCatching { MeteoWidget().updateAll(appCtx) } }
-                            }
-                        )
-                        Text("Widget: testo scuro")
-                    }
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
@@ -240,6 +220,14 @@ fun WeatherApp(refreshTick: Int) {
                         },
                         shape = RoundedCornerShape(50)
                     ) { Text("Impostazioni widget") }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            showMenu = false
+                            showPopupSettings = true
+                        },
+                        shape = RoundedCornerShape(50)
+                    ) { Text("Impostazioni popup") }
                     TextButton(onClick = {
                         forceTick++
                         showMenu = false

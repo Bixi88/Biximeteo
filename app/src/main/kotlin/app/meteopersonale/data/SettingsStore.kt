@@ -48,6 +48,41 @@ class SettingsStore(context: Context) {
             p.edit().putBoolean("wg_current", v).apply()
         }
 
+    /** Quanti giorni mostra il widget (da 4 a 7, predefinito 6). */
+    var widgetDays: Int
+        get() = p.getInt("wg_days", 6).coerceIn(4, 7)
+        set(v) {
+            p.edit().putInt("wg_days", v.coerceIn(4, 7)).apply()
+        }
+
+    /** Popup di allerta vento/pioggia attivo. */
+    var alertEnabled: Boolean
+        get() = p.getBoolean("al_on", false)
+        set(v) {
+            p.edit().putBoolean("al_on", v).apply()
+        }
+
+    /** Ora (0-23) in cui il popup può comparire. */
+    var alertHour: Int
+        get() = p.getInt("al_h", 8).coerceIn(0, 23)
+        set(v) {
+            p.edit().putInt("al_h", v.coerceIn(0, 23)).apply()
+        }
+
+    /** Minuto (0-59) in cui il popup può comparire. */
+    var alertMinute: Int
+        get() = p.getInt("al_m", 0).coerceIn(0, 59)
+        set(v) {
+            p.edit().putInt("al_m", v.coerceIn(0, 59)).apply()
+        }
+
+    /** Ultimo giorno (epochDay) in cui il popup è già comparso: evita doppioni. */
+    var alertLastDay: Long
+        get() = p.getLong("al_last", -1L)
+        set(v) {
+            p.edit().putLong("al_last", v).apply()
+        }
+
     /** Località dell'app (ultima scelta o ultima posizione GPS). */
     var place: Place?
         get() = readPlace("place_name", "lat_bits", "lon_bits")
