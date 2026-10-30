@@ -22,7 +22,7 @@ object AlertLogic {
     const val RAIN_TOTAL_MM = 1.0
 
     /** Vento medio che fa scattare l'avviso (km/h). */
-    const val WIND_KMH = 7.0
+    const val WIND_KMH = 20.0
 
     /** Raffica che fa scattare l'avviso (km/h). */
     const val GUST_KMH = 50.0
