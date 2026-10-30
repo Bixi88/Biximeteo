@@ -1,6 +1,7 @@
 package app.meteopersonale.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -9,6 +10,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -73,7 +75,7 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean)
     val sub = if (dark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0)
     val size = LocalSize.current
 
-    val open = actionStartActivity<MainActivity>()
+    val open = actionStartActivity(Intent(LocalContext.current, MainActivity::class.java))
 
     if (message != null) {
         Box(
