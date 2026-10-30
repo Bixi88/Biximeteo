@@ -6,7 +6,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
+import androidx.glance.currentState
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
@@ -39,42 +46,108 @@ import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Widget meteo settimanale: giorno, icona, massima (grande) e minima (piccola), come Weawow. */
+/** Dati già pronti da disegnare (salvati nello stato di Glance). */
+private data class WidgetData(
+    val cols: List<WidgetCol>,
+    val message: String?,
+    val dark: Boolean,
+    val scale: Float
+)
+
+private val PAYLOAD_KEY = stringPreferencesKey("payload")
+
+/** Widget meteo: giorno, icona, temperatura grande e minima piccola, come Weawow. */
 class MeteoWidget : GlanceAppWidget() {
 
-    // Il numero di colonne dipende dalla larghezza reale del widget
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         WidgetUpdater.schedulePeriodic(context)
-        val settings = SettingsStore(context)
-        val place = settings.widgetResolvedPlace()
-        val dark = settings.widgetDarkText
-        val scale = settings.widgetFontScale
+        // I dati stanno nello stato di Glance: ogni modifica ridisegna subito il widget
+        // (prima venivano letti una volta sola, e il widget restava indietro di un passo).
+        val payload = buildPayload(context)
+        updateAppWidgetState(context, id) { it[PAYLOAD_KEY] = payload }
+        provideContent {
+            val raw = currentState<Preferences>()[PAYLOAD_KEY]
+            val d = parsePayload(raw)
+            WidgetContent(d.cols, d.message, d.dark, d.scale)
+        }
+    }
 
-        var cols: List<WidgetCol> = emptyList()
-        var message: String? = null
-        if (place == null) {
-            message = "Apri l'app per scegliere la posizione"
-        } else {
-            try {
-                val f = WeatherRepository(context).load(
-                    place, settings.source,
-                    maxAgeS = settings.widgetIntervalMin * 60L
-                )
-                val now = Instant.now()
-                // ora attuale: serve per l'icona di oggi (di sera con la luna)
-                val current = f.hours.lastOrNull {
-                    it.time <= now && it.time > now.minus(2, ChronoUnit.HOURS)
-                }
-                cols = buildWidgetColumns(f.days, current, settings.widgetDays)
-                if (cols.isEmpty()) message = "Nessun dato"
-            } catch (e: Exception) {
-                message = "Nessun dato"
+    companion object {
+        /** Ricalcola i dati e li scrive nello stato di tutti i widget: li aggiorna subito. */
+        suspend fun push(context: Context) {
+            val app = context.applicationContext
+            val payload = buildPayload(app)
+            val widget = MeteoWidget()
+            val ids = GlanceAppWidgetManager(app).getGlanceIds(MeteoWidget::class.java)
+            for (id in ids) {
+                updateAppWidgetState(app, id) { it[PAYLOAD_KEY] = payload }
+                widget.update(app, id)
             }
         }
 
-        provideContent { WidgetContent(cols, message, dark, scale) }
+        private suspend fun buildPayload(context: Context): String {
+            val settings = SettingsStore(context)
+            val o = JSONObject()
+                .put("dark", settings.widgetDarkText)
+                .put("scale", settings.widgetFontScale.toDouble())
+            val place = settings.widgetResolvedPlace()
+            if (place == null) {
+                o.put("msg", "Apri l'app per scegliere la posizione")
+            } else {
+                try {
+                    val f = WeatherRepository(context).load(
+                        place, settings.source,
+                        maxAgeS = settings.widgetIntervalMin * 60L
+                    )
+                    val now = Instant.now()
+                    // ora attuale: serve per l'icona di oggi (di sera con la luna)
+                    val current = f.hours.lastOrNull {
+                        it.time <= now && it.time > now.minus(2, ChronoUnit.HOURS)
+                    }
+                    val cols = buildWidgetColumns(f.days, current, settings.widgetDays)
+                    if (cols.isEmpty()) {
+                        o.put("msg", "Nessun dato")
+                    } else {
+                        val arr = JSONArray()
+                        for (c in cols) {
+                            arr.put(
+                                JSONObject().put("n", c.name).put("s", c.symbol)
+                                    .put("b", c.bigC).put("m", c.smallC)
+                            )
+                        }
+                        o.put("cols", arr)
+                    }
+                } catch (e: Exception) {
+                    o.put("msg", "Nessun dato")
+                }
+            }
+            return o.toString()
+        }
+
+        private fun parsePayload(raw: String?): WidgetData {
+            if (raw == null) return WidgetData(emptyList(), "Carico…", true, 1f)
+            return try {
+                val o = JSONObject(raw)
+                val arr = o.optJSONArray("cols")
+                val cols = ArrayList<WidgetCol>()
+                if (arr != null) {
+                    for (i in 0 until arr.length()) {
+                        val c = arr.getJSONObject(i)
+                        cols.add(WidgetCol(c.getString("n"), c.getString("s"), c.getInt("b"), c.getInt("m")))
+                    }
+                }
+                WidgetData(
+                    cols,
+                    if (o.has("msg")) o.getString("msg") else null,
+                    o.optBoolean("dark", true),
+                    o.optDouble("scale", 1.0).toFloat()
+                )
+            } catch (e: Exception) {
+                WidgetData(emptyList(), "Nessun dato", true, 1f)
+            }
+        }
     }
 }
 

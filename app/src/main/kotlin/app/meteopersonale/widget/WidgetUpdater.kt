@@ -1,7 +1,6 @@
 package app.meteopersonale.widget
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -28,7 +27,7 @@ object WidgetUpdater {
     /** Ridisegna subito il widget con i dati già in cache (cambi di aspetto). */
     fun redraw(context: Context) {
         val app = context.applicationContext
-        scope.launch { runCatching { MeteoWidget().updateAll(app) } }
+        scope.launch { runCatching { MeteoWidget.push(app) } }
     }
 
     /** Scarica i dati se servono e poi ridisegna (in background, anche a app chiusa). */
@@ -61,7 +60,7 @@ class WidgetWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 )
             }
         }
-        runCatching { MeteoWidget().updateAll(applicationContext) }
+        runCatching { MeteoWidget.push(applicationContext) }
         return Result.success()
     }
 }
