@@ -37,7 +37,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Widget a 7 giorni: giorno, icona, massima (grande) e minima (piccola). */
+/** Widget meteo settimanale: giorno, icona, massima (grande) e minima (piccola), come Weawow. */
 class MeteoWidget : GlanceAppWidget() {
 
     // Il numero di colonne dipende dalla larghezza reale del widget
@@ -45,8 +45,9 @@ class MeteoWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val settings = SettingsStore(context)
-        val place = settings.place
+        val place = settings.widgetResolvedPlace()
         val dark = settings.widgetDarkText
+        val scale = settings.widgetFontScale
 
         var days: List<DayPoint> = emptyList()
         var message: String? = null
@@ -54,7 +55,10 @@ class MeteoWidget : GlanceAppWidget() {
             message = "Apri l'app per scegliere la posizione"
         } else {
             try {
-                val f = WeatherRepository(context).load(place, settings.source)
+                val f = WeatherRepository(context).load(
+                    place, settings.source,
+                    maxAgeS = settings.widgetIntervalMin * 60L
+                )
                 val today = LocalDate.now()
                 days = f.days.filter { !it.date.isBefore(today) }.take(7)
                 if (days.isEmpty()) message = "Nessun dato"
@@ -63,16 +67,31 @@ class MeteoWidget : GlanceAppWidget() {
             }
         }
 
-        provideContent { WidgetContent(days, message, dark) }
+        provideContent { WidgetContent(days, message, dark, scale) }
     }
+}
+
+/** Misure del widget, condivise con l'anteprima nelle impostazioni. */
+object WidgetMetrics {
+    const val COLUMN_DP = 56f
+    const val DAY_SP = 12f
+    const val MAX_SP = 14f
+    const val MIN_SP = 9f
+    const val ICON_DP = 24f
+
+    fun columns(widthDp: Float, scale: Float): Int =
+        (widthDp / (COLUMN_DP * scale)).toInt().coerceIn(3, 7)
 }
 
 private val dayFmt = DateTimeFormatter.ofPattern("EEE", Locale.ITALY)
 
+fun widgetDayName(d: LocalDate): String =
+    dayFmt.format(d).replaceFirstChar { it.uppercase() }.removeSuffix(".")
+
 @Composable
-private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean) {
+private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean, scale: Float) {
     val main = if (dark) Color(0xFF101010) else Color.White
-    val sub = if (dark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0)
+    val sub = if (dark) Color(0xFF444444) else Color(0xFFDDDDDD)
     val size = LocalSize.current
 
     val open = actionStartActivity(Intent(LocalContext.current, MainActivity::class.java))
@@ -82,18 +101,16 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean)
             modifier = GlanceModifier.fillMaxSize().clickable(open),
             contentAlignment = Alignment.Center
         ) {
-            Text(message, style = TextStyle(color = ColorProvider(main), fontSize = 14.sp))
+            Text(message, style = TextStyle(color = ColorProvider(main), fontSize = 13.sp))
         }
         return
     }
 
-    // circa 48 dp per colonna, da 3 a 7 giorni
-    val cols = (size.width.value / 48f).toInt().coerceIn(3, 7)
+    val cols = WidgetMetrics.columns(size.width.value, scale)
     val shown = days.take(cols)
-    val icon = if (size.height < 90.dp) 30.dp else 38.dp
 
     Row(
-        modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp).clickable(open),
+        modifier = GlanceModifier.fillMaxSize().padding(horizontal = 2.dp).clickable(open),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -103,26 +120,35 @@ private fun WidgetContent(days: List<DayPoint>, message: String?, dark: Boolean)
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    dayFmt.format(d.date).replaceFirstChar { it.uppercase() }.removeSuffix("."),
+                    widgetDayName(d.date),
                     style = TextStyle(
                         color = ColorProvider(main),
-                        fontSize = 14.sp,
+                        fontSize = (WidgetMetrics.DAY_SP * scale).sp,
                         textAlign = TextAlign.Center
-                    )
+                    ),
+                    maxLines = 1
                 )
                 Image(
                     provider = ImageProvider(WeatherIcons.resFor(d.symbol)),
                     contentDescription = null,
-                    modifier = GlanceModifier.size(icon)
+                    modifier = GlanceModifier.size((WidgetMetrics.ICON_DP * scale).dp)
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         "${Math.round(d.maxC)}°",
-                        style = TextStyle(color = ColorProvider(main), fontSize = 19.sp)
+                        style = TextStyle(
+                            color = ColorProvider(main),
+                            fontSize = (WidgetMetrics.MAX_SP * scale).sp
+                        ),
+                        maxLines = 1
                     )
                     Text(
                         "${Math.round(d.minC)}°",
-                        style = TextStyle(color = ColorProvider(sub), fontSize = 12.sp)
+                        style = TextStyle(
+                            color = ColorProvider(sub),
+                            fontSize = (WidgetMetrics.MIN_SP * scale).sp
+                        ),
+                        maxLines = 1
                     )
                 }
             }

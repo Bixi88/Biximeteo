@@ -21,23 +21,28 @@ class WeatherRepository(private val context: Context) {
      * Carica la previsione dalla fonte scelta; se fallisce passa automaticamente
      * all'altra (e lo segnala in Forecast.fallbackFrom).
      */
-    suspend fun load(place: Place, source: WeatherSource, force: Boolean = false): Forecast =
+    suspend fun load(
+        place: Place,
+        source: WeatherSource,
+        force: Boolean = false,
+        maxAgeS: Long? = null
+    ): Forecast =
         withContext(Dispatchers.IO) {
             try {
-                fetch(place, source, force)
+                fetch(place, source, force, maxAgeS)
             } catch (e: Exception) {
                 val other = if (source == WeatherSource.MET_NORWAY) {
                     WeatherSource.OPEN_METEO
                 } else {
                     WeatherSource.MET_NORWAY
                 }
-                fetch(place, other, force).copy(fallbackFrom = source)
+                fetch(place, other, force, maxAgeS).copy(fallbackFrom = source)
             }
         }
 
-    private fun fetch(place: Place, source: WeatherSource, force: Boolean): Forecast {
+    private fun fetch(place: Place, source: WeatherSource, force: Boolean, maxAgeS: Long?): Forecast {
         val key = String.format(Locale.US, "%.4f,%.4f", place.lat, place.lon)
-        val body = bodyFor(place, source, key, force)
+        val body = bodyFor(place, source, key, force, maxAgeS)
         val raw = when (source) {
             WeatherSource.MET_NORWAY -> MetNoParser.parse(body)
             WeatherSource.OPEN_METEO -> OpenMeteoParser.parse(body)
@@ -70,10 +75,13 @@ class WeatherRepository(private val context: Context) {
 
     // ---------- cache delle risposte ----------
 
-    private fun cacheFile(s: WeatherSource) = File(context.cacheDir, "fc_${s.name}.json")
+    private fun safe(key: String) = key.replace(Regex("[^0-9A-Za-z]"), "_")
+
+    private fun cacheFile(s: WeatherSource, key: String) =
+        File(context.cacheDir, "fc_${s.name}_${safe(key)}.json")
 
     private fun readCache(s: WeatherSource, key: String): JSONObject? {
-        val f = cacheFile(s)
+        val f = cacheFile(s, key)
         if (!f.exists()) return null
         return runCatching { JSONObject(f.readText()) }.getOrNull()
             ?.takeIf { it.optString("key") == key }
@@ -89,13 +97,17 @@ class WeatherRepository(private val context: Context) {
             .put("expires", expires)
             .put("fetchedAt", Instant.now().epochSecond)
             .put("lastModified", lastModified ?: "")
-        runCatching { cacheFile(s).writeText(o.toString()) }
+        runCatching { cacheFile(s, key).writeText(o.toString()) }
     }
 
-    private fun bodyFor(place: Place, source: WeatherSource, key: String, force: Boolean): String {
+    private fun bodyFor(
+        place: Place, source: WeatherSource, key: String, force: Boolean, maxAgeS: Long?
+    ): String {
         val nowS = Instant.now().epochSecond
         val cached = readCache(source, key)
-        if (!force && cached != null && nowS < cached.optLong("expires")) {
+        val youngEnough = maxAgeS != null && cached != null &&
+            nowS - cached.optLong("fetchedAt") < maxAgeS
+        if (!force && cached != null && (nowS < cached.optLong("expires") || youngEnough)) {
             return cached.getString("body")
         }
 
@@ -142,10 +154,10 @@ class WeatherRepository(private val context: Context) {
 
     // ---------- storico delle ultime ore ----------
 
-    private fun historyFile() = File(context.filesDir, "history.json")
+    private fun historyFile(key: String) = File(context.filesDir, "history_${safe(key)}.json")
 
     private fun readHistory(key: String): List<HourPoint> {
-        val f = historyFile()
+        val f = historyFile(key)
         if (!f.exists()) return emptyList()
         return runCatching {
             val o = JSONObject(f.readText())
@@ -178,7 +190,7 @@ class WeatherRepository(private val context: Context) {
             a.put(o)
         }
         runCatching {
-            historyFile().writeText(JSONObject().put("key", key).put("points", a).toString())
+            historyFile(key).writeText(JSONObject().put("key", key).put("points", a).toString())
         }
     }
 }

@@ -19,6 +19,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -74,6 +76,7 @@ fun WeatherApp(refreshTick: Int) {
     var showMenu by remember { mutableStateOf(false) }
     var widgetDark by remember { mutableStateOf(settings.widgetDarkText) }
     var showSearch by remember { mutableStateOf(false) }
+    var showWidgetSettings by remember { mutableStateOf(false) }
     var forceTick by remember { mutableIntStateOf(0) }
     var lastForce by remember { mutableIntStateOf(0) }
 
@@ -88,6 +91,7 @@ fun WeatherApp(refreshTick: Int) {
             if (p != null) {
                 place = p
                 settings.place = p
+                settings.gpsPlace = p
                 settings.useGps = true
             } else {
                 status = "Posizione non disponibile"
@@ -149,7 +153,7 @@ fun WeatherApp(refreshTick: Int) {
         }
     }
 
-    Column(
+    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else Column(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
@@ -171,7 +175,7 @@ fun WeatherApp(refreshTick: Int) {
         val f = forecast
         if (f != null) {
             val from = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(1, ChronoUnit.HOURS)
-            val to = from.plus(13, ChronoUnit.HOURS)
+            val to = from.plus(25, ChronoUnit.HOURS) // da -1h a +24h
             HourlySection(f.hours.filter { it.time >= from && it.time <= to }, zone)
             Spacer(Modifier.height(18.dp))
             DailySection(f.days.take(10))
@@ -228,6 +232,14 @@ fun WeatherApp(refreshTick: Int) {
                         )
                         Text("Widget: testo scuro")
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            showMenu = false
+                            showWidgetSettings = true
+                        },
+                        shape = RoundedCornerShape(50)
+                    ) { Text("Impostazioni widget") }
                     TextButton(onClick = {
                         forceTick++
                         showMenu = false
