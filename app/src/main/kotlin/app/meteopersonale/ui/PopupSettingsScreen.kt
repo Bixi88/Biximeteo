@@ -43,7 +43,7 @@ import app.meteopersonale.alert.AlertScheduler
 import app.meteopersonale.data.SettingsStore
 import java.util.Locale
 
-private val Accent = Color(0xFF3B9BEF)
+private val Accent = Color(0xFFD0BCFF) // lilla
 private val Dim = Color(0xFF9A9A9A)
 
 /** Pagina "Impostazioni popup": attivazione, ora di comparsa e prova. */

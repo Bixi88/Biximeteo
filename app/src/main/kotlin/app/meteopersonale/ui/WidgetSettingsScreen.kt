@@ -78,7 +78,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-private val Accent = Color(0xFF3B9BEF)
+private val Accent = Color(0xFFD0BCFF) // lilla
 private val Dim = Color(0xFF9A9A9A)
 
 private val intervals = listOf(30 to "30 minuti", 60 to "1 ora", 180 to "3 ore", 360 to "6 ore")
@@ -266,11 +266,16 @@ fun WidgetSettingsScreen(onBack: () -> Unit) {
                         }
                         .padding(horizontal = 22.dp, vertical = 9.dp)
                 ) {
-                    Text("$n", color = if (sel) Color.Black else Color.White, fontSize = 16.sp)
+                    Text("$n", color = if (sel) Color(0xFF381E72) else Color.White, fontSize = 16.sp)
                 }
             }
-            Text("(predefinito 6)", color = Dim, fontSize = 13.sp)
         }
+        Text(
+            "Predefinito: 6",
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 24.dp, top = 8.dp)
+        )
 
         Divider2()
 

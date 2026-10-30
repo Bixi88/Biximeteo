@@ -72,7 +72,7 @@ object AlertNotifier {
             .setContentText(lines.first())
             .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
             .setSubText(placeName)
-            .setColor(0xFF3B9BEF.toInt())
+            .setColor(0xFF6750A4.toInt())
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openApp(ctx))

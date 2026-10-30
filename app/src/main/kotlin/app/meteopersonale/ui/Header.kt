@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Sky = Brush.verticalGradient(listOf(Color(0xFF3B5E94), Color(0xFF1C3257)))
+private val Sky = Brush.verticalGradient(listOf(Color(0xFF5A4580), Color(0xFF2D2147)))
 
 @Composable
 fun Header(
@@ -41,7 +41,7 @@ fun Header(
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RoundButton(Color(0x99252A33), onMenu) {
+        RoundButton(Color(0x99231A33), onMenu) {
             val w = size.width
             val h = size.height
             for (k in -1..1) {
@@ -59,7 +59,7 @@ fun Header(
                 .weight(1f)
                 .padding(horizontal = 16.dp)
         )
-        RoundButton(Color(0x99252A33), onSearch) {
+        RoundButton(Color(0x99231A33), onSearch) {
             val c = Offset(size.width * 0.46f, size.height * 0.46f)
             val r = size.width * 0.17f
             drawCircle(Color.White, r, c, style = Stroke(2.2.dp.toPx()))
@@ -71,8 +71,8 @@ fun Header(
             )
         }
         Box(Modifier.size(10.dp))
-        RoundButton(Color(0xAA16243A), onGps) {
-            val blue = Color(0xFF3B9BF0)
+        RoundButton(Color(0xAA231A33), onGps) {
+            val blue = Color(0xFFD0BCFF)
             val c = Offset(size.width / 2f, size.height / 2f)
             drawCircle(blue, size.width * 0.09f, c)
             drawCircle(blue, size.width * 0.20f, c, style = Stroke(2.2.dp.toPx()))
