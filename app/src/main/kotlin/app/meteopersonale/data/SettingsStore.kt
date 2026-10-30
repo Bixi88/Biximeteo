@@ -20,6 +20,13 @@ class SettingsStore(context: Context) {
             p.edit().putBoolean("use_gps", v).apply()
         }
 
+    /** Colore del testo del widget: true = scuro (come nello screenshot di Weawow). */
+    var widgetDarkText: Boolean
+        get() = p.getBoolean("widget_dark_text", true)
+        set(v) {
+            p.edit().putBoolean("widget_dark_text", v).apply()
+        }
+
     var place: Place?
         get() {
             val name = p.getString("place_name", null) ?: return null

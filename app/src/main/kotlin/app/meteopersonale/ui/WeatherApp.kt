@@ -39,6 +39,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.updateAll
+import androidx.compose.material3.Checkbox
+import app.meteopersonale.widget.MeteoWidget
 import app.meteopersonale.BuildConfig
 import app.meteopersonale.data.Forecast
 import app.meteopersonale.data.Geocoding
@@ -69,6 +72,7 @@ fun WeatherApp(refreshTick: Int) {
     var forecast by remember { mutableStateOf<Forecast?>(null) }
     var status by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
+    var widgetDark by remember { mutableStateOf(settings.widgetDarkText) }
     var showSearch by remember { mutableStateOf(false) }
     var forceTick by remember { mutableIntStateOf(0) }
     var lastForce by remember { mutableIntStateOf(0) }
@@ -129,6 +133,8 @@ fun WeatherApp(refreshTick: Int) {
         try {
             val f = repo.load(p, source, force)
             forecast = f
+            // aggiorna anche il widget (usa i dati appena salvati in cache)
+            runCatching { MeteoWidget().updateAll(appCtx) }
             val fb = f.fallbackFrom
             val hm = DateTimeFormatter.ofPattern("H:mm").withZone(zone)
             status = if (fb != null) {
@@ -200,6 +206,27 @@ fun WeatherApp(refreshTick: Int) {
                             )
                             Text(s.label)
                         }
+                    }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                widgetDark = !widgetDark
+                                settings.widgetDarkText = widgetDark
+                                scope.launch { runCatching { MeteoWidget().updateAll(appCtx) } }
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = widgetDark,
+                            onCheckedChange = {
+                                widgetDark = it
+                                settings.widgetDarkText = it
+                                scope.launch { runCatching { MeteoWidget().updateAll(appCtx) } }
+                            }
+                        )
+                        Text("Widget: testo scuro")
                     }
                     TextButton(onClick = {
                         forceTick++
