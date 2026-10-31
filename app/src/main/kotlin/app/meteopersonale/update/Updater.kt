@@ -20,7 +20,8 @@ data class UpdateInfo(
     val tag: String,
     val notes: String,
     val assetApiUrl: String,
-    val size: Long
+    val size: Long,
+    val publishedMs: Long
 )
 
 /**
@@ -73,7 +74,9 @@ object Updater {
             }
         }
         if (url.isEmpty()) error("La release non contiene un APK")
-        UpdateInfo(build, tag, o.optString("body", ""), url, size)
+        val published = runCatching { java.time.Instant.parse(o.optString("published_at", "")).toEpochMilli() }
+            .getOrDefault(0L)
+        UpdateInfo(build, tag, o.optString("body", ""), url, size, published)
     }
 
     /** Scarica l'APK nella cache; [onProgress] va da 0 a 1. */
