@@ -18,6 +18,7 @@ android {
         versionCode = buildNumber
         versionName = "build $buildNumber"
         // MET Norway richiede uno User-Agent che identifichi l'app e un contatto
+        buildConfigField("long", "BUILD_TIME", "${System.currentTimeMillis()}L")
         buildConfigField("String", "USER_AGENT", "\"MeteoPersonale/0.1 github.com/Bixi88\"")
     }
 
