@@ -76,6 +76,7 @@ fun WeatherApp(refreshTick: Int) {
     var status by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
     var showPopupSettings by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var showWidgetSettings by remember { mutableStateOf(false) }
     var forceTick by remember { mutableIntStateOf(0) }
@@ -154,7 +155,7 @@ fun WeatherApp(refreshTick: Int) {
         }
     }
 
-    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else if (showPopupSettings) PopupSettingsScreen(onBack = { showPopupSettings = false }) else Column(
+    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else if (showPopupSettings) PopupSettingsScreen(onBack = { showPopupSettings = false }) else if (showUpdate) UpdateScreen(onBack = { showUpdate = false }) else Column(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
@@ -228,6 +229,14 @@ fun WeatherApp(refreshTick: Int) {
                         },
                         shape = RoundedCornerShape(50)
                     ) { Text("Impostazioni popup") }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            showMenu = false
+                            showUpdate = true
+                        },
+                        shape = RoundedCornerShape(50)
+                    ) { Text("Aggiornamenti") }
                     TextButton(onClick = {
                         forceTick++
                         showMenu = false

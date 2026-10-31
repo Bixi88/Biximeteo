@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Numero di build: lo passa il workflow di GitHub (-PbuildNumber=...), serve per gli aggiornamenti
+val buildNumber = (findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "app.meteopersonale"
     compileSdk = 35
@@ -12,8 +15,8 @@ android {
         applicationId = "app.meteopersonale"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = buildNumber
+        versionName = "build $buildNumber"
         // MET Norway richiede uno User-Agent che identifichi l'app e un contatto
         buildConfigField("String", "USER_AGENT", "\"MeteoPersonale/0.1 github.com/Bixi88\"")
     }

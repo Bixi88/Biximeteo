@@ -48,6 +48,13 @@ class SettingsStore(context: Context) {
             p.edit().putBoolean("wg_current", v).apply()
         }
 
+    /** Token GitHub (facoltativo, solo per repository privati) usato dagli aggiornamenti. */
+    var githubToken: String
+        get() = p.getString("gh_token", "") ?: ""
+        set(v) {
+            p.edit().putString("gh_token", v).apply()
+        }
+
     /** Quanti giorni mostra il widget (da 4 a 7, predefinito 6). */
     var widgetDays: Int
         get() = p.getInt("wg_days", 6).coerceIn(4, 7)
