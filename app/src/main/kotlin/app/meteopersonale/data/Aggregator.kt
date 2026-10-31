@@ -6,7 +6,12 @@ import kotlin.math.abs
 object Aggregator {
     fun hours(raw: List<RawPoint>): List<HourPoint> =
         raw.filter { it.stepHours == 1 }
-            .map { HourPoint(it.time, it.tempC, it.precipMm, it.windMs, it.gustMs, it.symbol) }
+            .map {
+                HourPoint(
+                    it.time, it.tempC, it.precipMm, it.windMs, it.gustMs,
+                    Symbols.adjustRain(it.symbol, it.precipMm)
+                )
+            }
 
     fun days(raw: List<RawPoint>, zone: ZoneId): List<DayPoint> =
         raw.groupBy { it.time.atZone(zone).toLocalDate() }
@@ -32,7 +37,7 @@ object Aggregator {
                     precipMm = precip,
                     windMaxMs = pts.maxOf { it.windMs },
                     gustMaxMs = pts.mapNotNull { it.gustMs }.maxOrNull(),
-                    symbol = Symbols.toDay(symbol)
+                    symbol = Symbols.adjustRain(Symbols.toDay(symbol), precip, daily = true)
                 )
             }
 }

@@ -61,6 +61,7 @@ class WidgetWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             }
         }
         runCatching { MeteoWidget.push(applicationContext) }
+        runCatching { app.meteopersonale.alert.AlertRunner.fallbackIfDue(applicationContext) }
         return Result.success()
     }
 }
