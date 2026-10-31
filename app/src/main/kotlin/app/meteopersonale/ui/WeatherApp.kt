@@ -18,7 +18,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.Button
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
@@ -74,9 +78,8 @@ fun WeatherApp(refreshTick: Int) {
     var source by remember { mutableStateOf(settings.source) }
     var forecast by remember { mutableStateOf<Forecast?>(null) }
     var status by remember { mutableStateOf("") }
-    var showMenu by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
     var showPopupSettings by remember { mutableStateOf(false) }
-    var showUpdate by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var showWidgetSettings by remember { mutableStateOf(false) }
     var forceTick by remember { mutableIntStateOf(0) }
@@ -155,95 +158,67 @@ fun WeatherApp(refreshTick: Int) {
         }
     }
 
-    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else if (showPopupSettings) PopupSettingsScreen(onBack = { showPopupSettings = false }) else if (showUpdate) UpdateScreen(onBack = { showUpdate = false }) else Column(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Header(
-            title = place?.name ?: "Scegli una posizione",
-            onMenu = { showMenu = true },
-            onSearch = { showSearch = true },
-            onGps = { onGps() }
-        )
-        Text(
-            status,
-            color = Color(0xFF8A8A8A),
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-        )
-
-        val f = forecast
-        if (f != null) {
-            val from = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(1, ChronoUnit.HOURS)
-            val to = from.plus(25, ChronoUnit.HOURS) // da -1h a +24h
-            HourlySection(f.hours.filter { it.time >= from && it.time <= to }, zone)
-            Spacer(Modifier.height(18.dp))
-            DailySection(f.days.take(10))
-        }
-        Spacer(Modifier.navigationBarsPadding().height(24.dp))
+    BackHandler(enabled = drawerState.currentValue == DrawerValue.Open) {
+        scope.launch { drawerState.close() }
     }
 
-    if (showMenu) {
-        AlertDialog(
-            onDismissRequest = { showMenu = false },
-            confirmButton = { TextButton(onClick = { showMenu = false }) { Text("Chiudi") } },
-            title = { Text("Fonte dei dati") },
-            text = {
-                Column {
-                    WeatherSource.values().forEach { s ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    source = s
-                                    settings.source = s
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = source == s,
-                                onClick = {
-                                    source = s
-                                    settings.source = s
-                                }
-                            )
-                            Text(s.label)
-                        }
+    if (showWidgetSettings) WidgetSettingsScreen(onBack = { showWidgetSettings = false }) else if (showPopupSettings) PopupSettingsScreen(onBack = { showPopupSettings = false }) else ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            SettingsDrawer(
+                source = source,
+                onSource = {
+                    source = it
+                    settings.source = it
+                },
+                onWidget = {
+                    scope.launch {
+                        drawerState.snapTo(DrawerValue.Closed)
+                        showWidgetSettings = true
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            showMenu = false
-                            showWidgetSettings = true
-                        },
-                        shape = RoundedCornerShape(50)
-                    ) { Text("Impostazioni widget") }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            showMenu = false
-                            showPopupSettings = true
-                        },
-                        shape = RoundedCornerShape(50)
-                    ) { Text("Impostazioni popup") }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            showMenu = false
-                            showUpdate = true
-                        },
-                        shape = RoundedCornerShape(50)
-                    ) { Text("Aggiornamenti") }
-                    TextButton(onClick = {
-                        forceTick++
-                        showMenu = false
-                    }) { Text("Aggiorna ora") }
+                },
+                onPopup = {
+                    scope.launch {
+                        drawerState.snapTo(DrawerValue.Closed)
+                        showPopupSettings = true
+                    }
+                },
+                onReload = {
+                    forceTick++
+                    scope.launch { drawerState.close() }
                 }
+            )
+        }
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Header(
+                title = place?.name ?: "Scegli una posizione",
+                onMenu = { scope.launch { drawerState.open() } },
+                onSearch = { showSearch = true },
+                onGps = { onGps() }
+            )
+            Text(
+                status,
+                color = Color(0xFF8A8A8A),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+
+            val f = forecast
+            if (f != null) {
+                val from = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(1, ChronoUnit.HOURS)
+                val to = from.plus(25, ChronoUnit.HOURS) // da -1h a +24h
+                HourlySection(f.hours.filter { it.time >= from && it.time <= to }, zone)
+                Spacer(Modifier.height(18.dp))
+                DailySection(f.days.take(10))
             }
-        )
+            Spacer(Modifier.navigationBarsPadding().height(24.dp))
+        }
     }
 
     if (showSearch) {

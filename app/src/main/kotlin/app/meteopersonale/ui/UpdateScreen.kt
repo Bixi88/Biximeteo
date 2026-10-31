@@ -3,24 +3,12 @@ package app.meteopersonale.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,21 +19,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.meteopersonale.BuildConfig
 import app.meteopersonale.data.SettingsStore
 import app.meteopersonale.update.UpdateInfo
 import app.meteopersonale.update.Updater
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val Dim = Color(0xFF9A9A9A)
+private val Dim = Color(0xFFB5ADC4)
+private val dateFmt = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.ITALIAN)
 
-/** Pagina "Aggiornamenti": controlla le Release di GitHub, scarica e installa. */
+/** Data e ora in italiano, es. "26 ott, 10:06". */
+internal fun formatBuildTime(ms: Long): String =
+    dateFmt.format(Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()))
+
+/** Sezione "Aggiornamenti" del pannello impostazioni: controlla GitHub, scarica e installa. */
 @Composable
-fun UpdateScreen(onBack: () -> Unit) {
+fun UpdateSection() {
     val ctx = LocalContext.current
     val appCtx = ctx.applicationContext
     val settings = remember { SettingsStore(appCtx) }
@@ -56,8 +52,6 @@ fun UpdateScreen(onBack: () -> Unit) {
     var msg by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
-
-    BackHandler(onBack = onBack)
 
     fun friendly(e: Exception): String =
         if (e is IOException) "Nessuna connessione o GitHub non raggiungibile"
@@ -72,9 +66,10 @@ fun UpdateScreen(onBack: () -> Unit) {
                 val u = Updater.fetchLatest(settings.githubToken)
                 info = u
                 msg = if (u.build.toLong() > installed) {
-                    "Disponibile la build ${u.build}"
+                    "Disponibile la build ${u.build}" +
+                        (if (u.publishedMs > 0) " del ${formatBuildTime(u.publishedMs)}" else "") + "."
                 } else {
-                    "Sei aggiornato (build $installed)"
+                    "Sei già all'ultima versione."
                 }
             } catch (e: Exception) {
                 msg = friendly(e)
@@ -86,7 +81,7 @@ fun UpdateScreen(onBack: () -> Unit) {
 
     fun install(u: UpdateInfo) {
         if (!appCtx.packageManager.canRequestPackageInstalls()) {
-            msg = "Consenti a Biximeteo di installare app, poi torna qui e riprova"
+            msg = "Consenti a Biximeteo di installare app, poi torna qui e riprova."
             ctx.startActivity(
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + appCtx.packageName))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -99,7 +94,7 @@ fun UpdateScreen(onBack: () -> Unit) {
             msg = "Scarico la build ${u.build}…"
             try {
                 val apk = Updater.download(appCtx, u, settings.githubToken) { progress = it }
-                msg = "Conferma l'installazione nella finestra di sistema"
+                msg = "Conferma l'installazione nella finestra di sistema."
                 Updater.install(appCtx, apk)
             } catch (e: Exception) {
                 msg = friendly(e)
@@ -110,39 +105,17 @@ fun UpdateScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .verticalScroll(rememberScrollState())
-            .statusBarsPadding()
-    ) {
+    Column {
         Text(
-            "←",
-            color = Color.White,
-            fontSize = 26.sp,
-            modifier = Modifier
-                .clickable { onBack() }
-                .padding(horizontal = 18.dp, vertical = 8.dp)
-        )
-        Text(
-            "Aggiornamenti",
-            color = Color.White,
-            fontSize = 24.sp,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)
-        )
-        Text(
-            "Build installata: $installed",
+            "Versione installata: build $installed del ${formatBuildTime(BuildConfig.BUILD_TIME)}.",
             color = Dim,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            fontSize = 14.sp
         )
-
         Button(
             onClick = { check() },
             enabled = !busy,
             shape = RoundedCornerShape(50),
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            modifier = Modifier.padding(top = 12.dp)
         ) { Text("Controlla aggiornamenti") }
 
         val u = info
@@ -151,8 +124,8 @@ fun UpdateScreen(onBack: () -> Unit) {
                 onClick = { install(u) },
                 enabled = !busy,
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            ) { Text("Scarica e installa la build ${u.build}") }
+                modifier = Modifier.padding(top = 8.dp)
+            ) { Text("Scarica e installa") }
         }
 
         val p = progress
@@ -161,14 +134,11 @@ fun UpdateScreen(onBack: () -> Unit) {
                 progress = { p },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(top = 12.dp)
             )
         }
-
         if (msg.isNotEmpty()) {
-            Text(msg, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(msg, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp))
         }
-
-        Spacer(Modifier.navigationBarsPadding().height(24.dp))
     }
 }
