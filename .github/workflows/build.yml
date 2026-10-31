@@ -25,7 +25,7 @@ jobs:
           gradle-version: '8.10.2'
 
       - name: Build release APK
-        run: gradle assembleRelease --stacktrace
+        run: gradle assembleRelease -PbuildNumber=${{ github.run_number }} --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
