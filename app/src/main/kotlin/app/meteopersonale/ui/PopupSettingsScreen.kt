@@ -77,6 +77,7 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
     fun enable() {
         enabled = true
         settings.alertEnabled = true
+        settings.alertLastDay = -1L // nuova attivazione: può comparire anche oggi
         AlertScheduler.schedule(appCtx)
         msg = ""
     }
@@ -112,6 +113,7 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
                 minute = m
                 settings.alertHour = h
                 settings.alertMinute = m
+                settings.alertLastDay = -1L // orario cambiato: può ricomparire anche oggi
                 AlertScheduler.schedule(appCtx)
             },
             hour, minute, true
