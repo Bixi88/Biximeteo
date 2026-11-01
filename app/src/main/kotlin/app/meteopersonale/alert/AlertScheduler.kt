@@ -18,6 +18,12 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 object AlertScheduler {
+    private val stampFmt = java.time.format.DateTimeFormatter.ofPattern("d MMM HH:mm:ss", java.util.Locale.ITALIAN)
+
+    /** Data e ora leggibili, per la diagnostica. */
+    fun stamp(ms: Long = System.currentTimeMillis()): String =
+        stampFmt.format(Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()))
+
     private fun pending(ctx: Context): PendingIntent =
         PendingIntent.getBroadcast(
             ctx, 4711, Intent(ctx, AlertReceiver::class.java),
@@ -36,12 +42,13 @@ object AlertScheduler {
         val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         am.cancel(pending(ctx))
         val s = SettingsStore(ctx)
-        if (!s.alertEnabled) return
-        am.setAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            nextTrigger(s.alertHour, s.alertMinute),
-            pending(ctx)
-        )
+        if (!s.alertEnabled) {
+            s.alertSched = "Popup disattivato"
+            return
+        }
+        val at = nextTrigger(s.alertHour, s.alertMinute)
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
+        s.alertSched = "Allarme programmato per " + stamp(at)
     }
 
     /** Invia subito un popup di prova con i dati veri. */
@@ -55,6 +62,8 @@ object AlertScheduler {
 /** Scatta all'ora scelta: riprogramma il giorno dopo e controlla le previsioni. */
 class AlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        SettingsStore(context.applicationContext).alertFired =
+            "Allarme scattato il " + AlertScheduler.stamp()
         AlertScheduler.schedule(context)
         WorkManager.getInstance(context.applicationContext)
             .enqueue(OneTimeWorkRequestBuilder<AlertWorker>().build())
@@ -71,7 +80,7 @@ class BootReceiver : BroadcastReceiver() {
 /** Controllo previsioni e notifica: usato dall'allarme, dalla prova e dalla rete di sicurezza. */
 object AlertRunner {
     /** @return false se il download è fallito (si può riprovare). */
-    suspend fun run(ctx: Context, test: Boolean): Boolean {
+    suspend fun run(ctx: Context, test: Boolean, source: String = "allarme"): Boolean {
         val s = SettingsStore(ctx)
         val today = LocalDate.now().toEpochDay()
         if (!test) {
@@ -82,9 +91,16 @@ object AlertRunner {
         val f = try {
             WeatherRepository(ctx).load(place, s.source, maxAgeS = 600L)
         } catch (e: Exception) {
+            s.alertResult = AlertScheduler.stamp() + " ($source): previsioni non scaricate"
             return false
         }
         val info = AlertLogic.evaluate(f.hours, Instant.now())
+        s.alertResult = AlertScheduler.stamp() + " ($source): " + when {
+            info.rain != null && info.wind != null -> "avviso vento e pioggia"
+            info.rain != null -> "avviso pioggia"
+            info.wind != null -> "avviso vento"
+            else -> "nessuna allerta"
+        }
         if (info.any) {
             AlertNotifier.show(ctx, place.name, info, ZoneId.systemDefault())
             if (!test) s.alertLastDay = today
@@ -109,13 +125,14 @@ object AlertRunner {
         val now = java.time.LocalTime.now()
         val at = java.time.LocalTime.of(s.alertHour, s.alertMinute)
         if (now.isBefore(at) || now.isAfter(at.plusHours(1)) || at.plusHours(1).isBefore(at)) return
-        run(ctx, false)
+        run(ctx, false, "controllo di sicurezza")
     }
 }
 
 class AlertWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        val ok = AlertRunner.run(applicationContext, inputData.getBoolean("test", false))
+        val isTest = inputData.getBoolean("test", false)
+        val ok = AlertRunner.run(applicationContext, isTest, if (isTest) "prova" else "allarme")
         return if (!ok && runAttemptCount < 2) Result.retry() else Result.success()
     }
 }
