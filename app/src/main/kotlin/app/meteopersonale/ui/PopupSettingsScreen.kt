@@ -3,7 +3,12 @@ package app.meteopersonale.ui
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +64,15 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
     var msg by remember { mutableStateOf("") }
 
     BackHandler(onBack = onBack)
+
+    fun isIgnoringBattery(): Boolean =
+        (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .isIgnoringBatteryOptimizations(appCtx.packageName)
+
+    var ignoring by remember { mutableStateOf(isIgnoringBattery()) }
+    val battLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { ignoring = isIgnoringBattery() }
 
     fun enable() {
         enabled = true
@@ -157,6 +172,49 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
+
+        Text(
+            "RISPARMIO BATTERIA",
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 6.dp)
+        )
+        Text(
+            if (ignoring) {
+                "Biximeteo è escluso dal risparmio batteria: il popup può comparire puntuale."
+            } else {
+                "Il risparmio batteria può far ritardare o saltare il popup. Se non compare all'ora scelta, escludi Biximeteo."
+            },
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        if (!ignoring) {
+            Button(
+                onClick = {
+                    battLauncher.launch(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:" + appCtx.packageName)
+                        )
+                    )
+                },
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.padding(start = 24.dp, top = 10.dp)
+            ) { Text("Escludi dal risparmio batteria") }
+        }
+
+        Text(
+            "DIAGNOSTICA",
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 6.dp)
+        )
+        listOf(settings.alertSched, settings.alertFired, settings.alertResult)
+            .filter { it.isNotEmpty() }
+            .forEach {
+                Text(it, color = Dim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp))
+            }
 
         Spacer(Modifier.height(10.dp))
         Button(
