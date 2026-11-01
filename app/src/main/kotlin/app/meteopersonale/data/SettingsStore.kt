@@ -55,6 +55,25 @@ class SettingsStore(context: Context) {
             p.edit().putString("gh_token", v).apply()
         }
 
+    /** Diagnostica del popup: quando è stato programmato, quando è scattato, ultimo esito. */
+    var alertSched: String
+        get() = p.getString("al_sched", "") ?: ""
+        set(v) {
+            p.edit().putString("al_sched", v).apply()
+        }
+
+    var alertFired: String
+        get() = p.getString("al_fired", "") ?: ""
+        set(v) {
+            p.edit().putString("al_fired", v).apply()
+        }
+
+    var alertResult: String
+        get() = p.getString("al_result", "") ?: ""
+        set(v) {
+            p.edit().putString("al_result", v).apply()
+        }
+
     /** Quanti giorni mostra il widget (da 4 a 7, predefinito 6). */
     var widgetDays: Int
         get() = p.getInt("wg_days", 6).coerceIn(4, 7)
