@@ -74,6 +74,14 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
         ActivityResultContracts.StartActivityForResult()
     ) { ignoring = isIgnoringBattery() }
 
+    var exactOk by remember { mutableStateOf(AlertScheduler.canExact(appCtx)) }
+    val exactLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        exactOk = AlertScheduler.canExact(appCtx)
+        AlertScheduler.schedule(appCtx)
+    }
+
     fun enable() {
         enabled = true
         settings.alertEnabled = true
@@ -204,6 +212,37 @@ fun PopupSettingsScreen(onBack: () -> Unit) {
                 shape = RoundedCornerShape(50),
                 modifier = Modifier.padding(start = 24.dp, top = 10.dp)
             ) { Text("Escludi dal risparmio batteria") }
+        }
+
+        Text(
+            "ALLARME PUNTUALE",
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 6.dp)
+        )
+        Text(
+            if (exactOk) {
+                "Permesso concesso: il popup scatta all'ora esatta, anche con il telefono in standby."
+            } else {
+                "Senza questo permesso Android può ritardare il popup di ore con l'app chiusa. Concedilo per averlo puntuale."
+            },
+            color = Dim,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        if (!exactOk && Build.VERSION.SDK_INT >= 31) {
+            Button(
+                onClick = {
+                    exactLauncher.launch(
+                        Intent(
+                            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                            Uri.parse("package:" + appCtx.packageName)
+                        )
+                    )
+                },
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.padding(start = 24.dp, top = 10.dp)
+            ) { Text("Consenti allarmi esatti") }
         }
 
         Text(
