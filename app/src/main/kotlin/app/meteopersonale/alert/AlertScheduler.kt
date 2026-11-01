@@ -30,6 +30,13 @@ object AlertScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+    /** Su Android 12+ gli allarmi esatti richiedono un permesso speciale; prima non serve. */
+    fun canExact(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return true
+        val am = context.applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        return am.canScheduleExactAlarms()
+    }
+
     fun nextTrigger(hour: Int, minute: Int, from: ZonedDateTime = ZonedDateTime.now()): Long {
         var t = from.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
         if (!t.isAfter(from)) t = t.plusDays(1)
@@ -47,8 +54,12 @@ object AlertScheduler {
             return
         }
         val at = nextTrigger(s.alertHour, s.alertMinute)
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
-        s.alertSched = "Allarme programmato per " + stamp(at)
+        // setExact...: puntuale anche in Doze e SENZA icona sveglia (che compare solo con setAlarmClock).
+        val exact = canExact(ctx) && runCatching {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
+        }.isSuccess
+        if (!exact) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
+        s.alertSched = (if (exact) "Allarme esatto programmato per " else "Allarme NON esatto (manca il permesso) per ") + stamp(at)
     }
 
     /** Invia subito un popup di prova con i dati veri. */
