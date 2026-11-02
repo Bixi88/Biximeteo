@@ -34,6 +34,22 @@ object Symbols {
             (if (thunder) "andthunder" else "") + sfx
     }
 
+    /**
+     * Porta la pioggia debole/moderata a "forte" mantenendo rovescio, temporale e giorno/notte.
+     * Neve, nevischio e icone senza pioggia restano invariate.
+     */
+    fun raiseToHeavy(symbol: String): String {
+        val sfx = listOf("_day", "_night", "_polartwilight").firstOrNull { symbol.endsWith(it) } ?: ""
+        val base = symbol.removeSuffix(sfx)
+        val thunder = base.endsWith("andthunder")
+        val core = base.removeSuffix("andthunder")
+        val shower = core.endsWith("showers")
+        val kind = core.removeSuffix("showers")
+        if (kind != "lightrain" && kind != "rain") return symbol
+        return "heavyrain" + (if (shower) "showers" else "") +
+            (if (thunder) "andthunder" else "") + sfx
+    }
+
     private val withDayNight = setOf(
         "clearsky", "fair", "partlycloudy",
         "lightrainshowers", "rainshowers", "heavyrainshowers",
