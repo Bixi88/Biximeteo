@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -63,9 +65,10 @@ fun HourlySection(hours: List<HourPoint>, zone: ZoneId) {
                         Column(Modifier.width(colW), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 if (now) "Ora" else timeFmt.format(p.time),
-                                color = if (now) TileAccent else TileDim,
-                                fontSize = 13.sp,
-                                modifier = Modifier.height(20.dp)
+                                color = if (now) TileAccent else Color(0xFFD0D0D0),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.height(22.dp)
                             )
                             Image(
                                 painter = painterResource(WeatherIcons.resFor(p.symbol)),
@@ -159,12 +162,12 @@ fun HourlySection(hours: List<HourPoint>, zone: ZoneId) {
                             Text(
                                 buildAnnotatedString {
                                     append(windKmh(p.windMs).toString())
-                                    withStyle(SpanStyle(fontSize = 9.sp)) { append("km/h") }
+                                    withStyle(SpanStyle(fontSize = 10.sp)) { append("km/h") }
                                 },
                                 color = WindColor,
-                                fontSize = 13.sp,
+                                fontSize = 14.sp,
                                 maxLines = 1,
-                                modifier = Modifier.height(22.dp)
+                                modifier = Modifier.height(24.dp)
                             )
                         }
                     }

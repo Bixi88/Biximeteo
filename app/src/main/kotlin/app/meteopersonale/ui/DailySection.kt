@@ -67,7 +67,7 @@ fun DailySection(days: List<DayPoint>) {
                         fontSize = 13.sp,
                         maxLines = 1
                     )
-                    Text("${windKmh(d.windMaxMs)} km/h", color = WindColor, fontSize = 11.sp, maxLines = 1)
+                    Text("${windKmh(d.windMaxMs)} km/h", color = WindColor, fontSize = 12.sp, maxLines = 1)
                 }
                 Text(
                     "${Math.round(d.minC)}°",
