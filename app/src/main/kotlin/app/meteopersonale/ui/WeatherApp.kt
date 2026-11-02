@@ -196,11 +196,20 @@ fun WeatherApp(refreshTick: Int) {
                 .background(Color.Black)
                 .verticalScroll(rememberScrollState())
         ) {
-            Header(
+            val f = forecast
+            val nowI = Instant.now()
+            val curHour = f?.hours?.lastOrNull { it.time <= nowI } ?: f?.hours?.firstOrNull()
+            val today = f?.days?.firstOrNull()
+            WeatherScene(
+                symbol = curHour?.symbol ?: "cloudy",
+                tempC = curHour?.tempC,
+                minC = today?.minC,
+                maxC = today?.maxC,
                 title = place?.name ?: "Scegli una posizione",
                 onMenu = { scope.launch { drawerState.open() } },
                 onSearch = { showSearch = true },
-                onGps = { onGps() }
+                onGps = { onGps() },
+                isNightNow = place?.let { SunCalc.isNight(it.lat, it.lon, nowI) }
             )
             Text(
                 status,
@@ -209,12 +218,10 @@ fun WeatherApp(refreshTick: Int) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
 
-            val f = forecast
             if (f != null) {
                 val from = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(1, ChronoUnit.HOURS)
                 val to = from.plus(25, ChronoUnit.HOURS) // da -1h a +24h
                 HourlySection(f.hours.filter { it.time >= from && it.time <= to }, zone)
-                Spacer(Modifier.height(18.dp))
                 DailySection(f.days.take(10))
             }
             Spacer(Modifier.navigationBarsPadding().height(24.dp))
